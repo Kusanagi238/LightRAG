@@ -1,24 +1,25 @@
 import asyncio
+import configparser
+import datetime
+import itertools
 import json
 import os
 import re
-import datetime
-from datetime import timezone
-from dataclasses import dataclass, field
-from typing import Any, Union, final
-import numpy as np
-import configparser
 import ssl
-import itertools
+from dataclasses import dataclass, field
+from datetime import timezone
+from typing import Any, Union, final
 
-from lightrag.types import KnowledgeGraph, KnowledgeGraphNode, KnowledgeGraphEdge
-
+import numpy as np
+import pipmaster as pm
 from tenacity import (
     retry,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
 )
+
+from lightrag.types import KnowledgeGraph, KnowledgeGraphEdge, KnowledgeGraphNode
 
 from ..base import (
     BaseGraphStorage,
@@ -28,19 +29,16 @@ from ..base import (
     DocStatus,
     DocStatusStorage,
 )
-from ..namespace import NameSpace, is_namespace
-from ..utils import logger
 from ..constants import GRAPH_FIELD_SEP
 from ..kg.shared_storage import get_data_init_lock, get_graph_db_lock, get_storage_lock
-
-import pipmaster as pm
+from ..namespace import NameSpace, is_namespace
+from ..utils import logger
 
 if not pm.is_installed("asyncpg"):
     pm.install("asyncpg")
 
 import asyncpg  # type: ignore
 from asyncpg import Pool  # type: ignore
-
 from dotenv import load_dotenv
 
 # use the .env that is inside the current folder
@@ -788,9 +786,9 @@ class PostgreSQLDB:
                 WHERE table_name = $1 AND column_name = $2
                 """
                 params = {
-                        "table_name": migration["table"].lower(),
-                        "column_name": migration["column"],
-                    }
+                    "table_name": migration["table"].lower(),
+                    "column_name": migration["column"],
+                }
                 column_info = await self.query(
                     check_column_sql,
                     list(params.values()),
@@ -1036,9 +1034,7 @@ class PostgreSQLDB:
                 AND table_schema = 'public'
                 """
                 params = {"table_name": table_name.lower()}
-                table_exists = await self.query(
-                    check_table_sql, list(params.values())
-                )
+                table_exists = await self.query(check_table_sql, list(params.values()))
 
                 if not table_exists:
                     logger.info(f"Creating table {table_name}")
@@ -3175,7 +3171,6 @@ class PGGraphStorage(BaseGraphStorage):
             return result[node_id]
 
     async def edge_degree(self, src_id: str, tgt_id: str) -> int:
-
         result = await self.edge_degrees_batch(edges=[(src_id, tgt_id)])
         if result and (src_id, tgt_id) in result:
             return result[(src_id, tgt_id)]
@@ -4312,7 +4307,7 @@ TABLES = {
                     meta JSONB,
                     create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
                     update_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
-	                CONSTRAINT LIGHTRAG_DOC_FULL_PK PRIMARY KEY (workspace, id)
+                    CONSTRAINT LIGHTRAG_DOC_FULL_PK PRIMARY KEY (workspace, id)
                     )"""
     },
     "LIGHTRAG_DOC_CHUNKS": {
@@ -4327,7 +4322,7 @@ TABLES = {
                     llm_cache_list JSONB NULL DEFAULT '[]'::jsonb,
                     create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
                     update_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
-	                CONSTRAINT LIGHTRAG_DOC_CHUNKS_PK PRIMARY KEY (workspace, id)
+                    CONSTRAINT LIGHTRAG_DOC_CHUNKS_PK PRIMARY KEY (workspace, id)
                     )"""
     },
     "LIGHTRAG_VDB_CHUNKS": {
@@ -4342,7 +4337,7 @@ TABLES = {
                     file_path TEXT NULL,
                     create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
                     update_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
-	                CONSTRAINT LIGHTRAG_VDB_CHUNKS_PK PRIMARY KEY (workspace, id)
+                    CONSTRAINT LIGHTRAG_VDB_CHUNKS_PK PRIMARY KEY (workspace, id)
                     )"""
     },
     "LIGHTRAG_VDB_ENTITY": {
@@ -4356,7 +4351,7 @@ TABLES = {
                     update_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
                     chunk_ids VARCHAR(255)[] NULL,
                     file_path TEXT NULL,
-	                CONSTRAINT LIGHTRAG_VDB_ENTITY_PK PRIMARY KEY (workspace, id)
+                    CONSTRAINT LIGHTRAG_VDB_ENTITY_PK PRIMARY KEY (workspace, id)
                     )"""
     },
     "LIGHTRAG_VDB_RELATION": {
@@ -4371,13 +4366,13 @@ TABLES = {
                     update_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
                     chunk_ids VARCHAR(255)[] NULL,
                     file_path TEXT NULL,
-	                CONSTRAINT LIGHTRAG_VDB_RELATION_PK PRIMARY KEY (workspace, id)
+                    CONSTRAINT LIGHTRAG_VDB_RELATION_PK PRIMARY KEY (workspace, id)
                     )"""
     },
     "LIGHTRAG_LLM_CACHE": {
         "ddl": """CREATE TABLE LIGHTRAG_LLM_CACHE (
-	                workspace varchar(255) NOT NULL,
-	                id varchar(255) NOT NULL,
+                    workspace varchar(255) NOT NULL,
+                    id varchar(255) NOT NULL,
                     original_prompt TEXT,
                     return_value TEXT,
                     chunk_id VARCHAR(255) NULL,
@@ -4385,26 +4380,26 @@ TABLES = {
                     queryparam JSONB NULL,
                     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	                CONSTRAINT LIGHTRAG_LLM_CACHE_PK PRIMARY KEY (workspace, id)
+                    CONSTRAINT LIGHTRAG_LLM_CACHE_PK PRIMARY KEY (workspace, id)
                     )"""
     },
     "LIGHTRAG_DOC_STATUS": {
         "ddl": """CREATE TABLE LIGHTRAG_DOC_STATUS (
-	               workspace varchar(255) NOT NULL,
+                    workspace varchar(255) NOT NULL,
 	               id varchar(255) NOT NULL,
 	               content_summary varchar(255) NULL,
-	               content_length int4 NULL,
-	               chunks_count int4 NULL,
-	               status varchar(64) NULL,
-	               file_path TEXT NULL,
-	               chunks_list JSONB NULL DEFAULT '[]'::jsonb,
-	               track_id varchar(255) NULL,
-	               metadata JSONB NULL DEFAULT '{}'::jsonb,
-	               error_msg TEXT NULL,
-	               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	               updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	               CONSTRAINT LIGHTRAG_DOC_STATUS_PK PRIMARY KEY (workspace, id)
-	              )"""
+                    content_length int4 NULL,
+                    chunks_count int4 NULL,
+                    status varchar(64) NULL,
+                    file_path TEXT NULL,
+                    chunks_list JSONB NULL DEFAULT '[]'::jsonb,
+                    track_id varchar(255) NULL,
+                    metadata JSONB NULL DEFAULT '{}'::jsonb,
+                    error_msg TEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT LIGHTRAG_DOC_STATUS_PK PRIMARY KEY (workspace, id)
+                    )"""
     },
     "LIGHTRAG_FULL_ENTITIES": {
         "ddl": """CREATE TABLE LIGHTRAG_FULL_ENTITIES (
